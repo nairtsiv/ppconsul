@@ -80,7 +80,7 @@ endif()
 add_subdirectory(ext/json11)
 add_subdirectory(src)
 
-option(BUILD_TESTS "Flag to use to build test or not" ON)
+option(BUILD_TESTS "Flag to use to build test or not" OFF)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
