@@ -26,6 +26,7 @@ namespace {
     }
 }
 
+
 TEST_CASE("agent.service_check_name", "[consul][agent][services]")
 {
     REQUIRE(serviceCheckId("bla-bla") == "service:bla-bla");
@@ -43,7 +44,10 @@ TEST_CASE("agent.service_deregistration", "[consul][agent][services]")
     agent.deregisterService("service1");
     REQUIRE(!agent.services().count("service1"));
 
-    CHECK_NOTHROW(agent.deregisterService(Non_Existing_Service_Name));
+    // At some point Consul has been changed to return 404 error on deregistering non-existing service
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService(Non_Existing_Service_Name), 404);
 }
 
 TEST_CASE("agent.service_registration", "[consul][agent][services]")
@@ -51,8 +55,8 @@ TEST_CASE("agent.service_registration", "[consul][agent][services]")
     auto consul = create_test_consul();
     Agent agent(consul);
 
-    agent.deregisterService("service1");
-    agent.deregisterService(Unique_Id);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService(Unique_Id), 404);
 
     SECTION("no check very simple")
     {
@@ -129,7 +133,7 @@ TEST_CASE("agent.service_registration", "[consul][agent][services]")
         const auto & c = checks.at(serviceCheckId("service1"));
 
         CHECK(c.id == serviceCheckId("service1"));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.status != CheckStatus::Passing);
         CHECK(c.notes.empty());
@@ -166,7 +170,7 @@ TEST_CASE("agent.service_registration", "[consul][agent][services]")
         const auto & c = checks.at(serviceCheckId(Unique_Id));
 
         CHECK(c.id == serviceCheckId(Unique_Id));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.status != CheckStatus::Passing);
         CHECK(c.notes.empty());
@@ -194,7 +198,7 @@ TEST_CASE("agent.service_registration", "[consul][agent][services]")
         const auto & c = checks.at(serviceCheckId("service1"));
 
         CHECK(c.id == serviceCheckId("service1"));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.status != CheckStatus::Passing);
         CHECK(c.notes.empty());
@@ -210,8 +214,8 @@ TEST_CASE("agent.service_registration_script_check_0_x", "[!hide][consul][agent]
     auto consul = create_test_consul();
     Agent agent(consul);
 
-    agent.deregisterService("service1");
-    agent.deregisterService(Unique_Id);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService(Unique_Id), 404);
 
     SECTION("script simple")
     {
@@ -234,7 +238,7 @@ TEST_CASE("agent.service_registration_script_check_0_x", "[!hide][consul][agent]
         const auto & c = checks.at(serviceCheckId("service1"));
 
         CHECK(c.id == serviceCheckId("service1"));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.notes.empty());
         CHECK(c.status != CheckStatus::Passing);    // because of Non_Existing_Script_Name
@@ -271,7 +275,7 @@ TEST_CASE("agent.service_registration_script_check_0_x", "[!hide][consul][agent]
         const auto & c = checks.at(serviceCheckId(Unique_Id));
 
         CHECK(c.id == serviceCheckId(Unique_Id));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.notes.empty());
         CHECK(c.status != CheckStatus::Passing);    // because of Non_Existing_Script_Name
@@ -286,8 +290,8 @@ TEST_CASE("agent.service_registration_command_check", "[consul][agent][services]
     auto consul = create_test_consul();
     Agent agent(consul);
 
-    agent.deregisterService("service1");
-    agent.deregisterService(Unique_Id);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService(Unique_Id), 404);
 
     SECTION("script simple")
     {
@@ -310,7 +314,7 @@ TEST_CASE("agent.service_registration_command_check", "[consul][agent][services]
         const auto & c = checks.at(serviceCheckId("service1"));
 
         CHECK(c.id == serviceCheckId("service1"));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.notes.empty());
         CHECK(c.status != CheckStatus::Passing);    // because of Non_Existing_Script_Name
@@ -347,7 +351,7 @@ TEST_CASE("agent.service_registration_command_check", "[consul][agent][services]
         const auto & c = checks.at(serviceCheckId(Unique_Id));
 
         CHECK(c.id == serviceCheckId(Unique_Id));
-        CHECK(c.node == agent.self().second.name);
+        CHECK(c.node == agent.self().member.name);
         CHECK(!c.name.empty());
         CHECK(c.notes.empty());
         CHECK(c.status != CheckStatus::Passing);    // because of Non_Existing_Script_Name
@@ -397,7 +401,7 @@ TEST_CASE("agent.service_check_update", "[consul][agent][service][health]")
     auto consul = create_test_consul();
     Agent agent(consul);
 
-    agent.deregisterService("service1");
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
 
     agent.registerService("service1", TtlCheck{std::chrono::minutes(5)});
     ppconsul::CheckInfo c = agent.checks().at(serviceCheckId("service1"));

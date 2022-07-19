@@ -12,7 +12,7 @@ The goal of Ppconsul is to:
 
 Note that this project is under development and doesn't promise a stable interface.
 
-Library tests are currently running against **Consul v1.4.2**. Library is known to work with Consul starting from version **0.4** (earlier versions might work as well but has never been tested) although some tests fail for older versions because of backward incompatible changes in Consul.
+Library tests are currently running against **Consul v1.11.1**. Library is known to work with Consul starting from version **0.4** (earlier versions might work as well but has never been tested) although some tests fail for older versions because of backward incompatible changes in Consul.
 
 The library is written in C++11 and requires a quite modern compiler. Currently it's compiled with:
 * macOS: Clang 11 (Xcode 11.3.1)
@@ -28,6 +28,7 @@ I try to support all modern compilers and platforms but I don't have resources t
 
 The library depends on:
 
+* [git](https://git-scm.com/) (optional) to deduce correct .so version
 * [Boost](http://www.boost.org/) 1.55 or later. Ppconsul needs only headers with one exception: using of GCC 4.8 requires Boost.Regex library because [regular expressions are broken in GCC 4.8](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53631).
 * [libCURL](http://curl.haxx.se/libcurl/) to do HTTP/HTTPS.
 
@@ -160,7 +161,25 @@ Kv kv(consul);
 consul.stop();
 ```
 
-Call to `Consul::stop()` is irreversible: once it's done the `Consul` object is switched to the stopped state forever. This whole feature was made solery for the purpose of timely application shutdown in case when blocking queries are used and should be used accordingly.
+Call to `Consul::stop()` is irreversible: once it's done the `Consul` object is switched to the stopped state forever. This whole feature purpose is to gracefully abort ongoing blocking queries on application/component shutdown.
+
+### Configure connect and request timeouts
+
+By default, connect timeout is set to 5 seconds and request timeout is not set (so it is unlimited). If needed you can override default values as following:
+
+```cpp
+#include "ppconsul/consul.h"
+
+using namespace ppconsul;
+
+Consul consul("https://localhost:8080",
+              kw::connect_timeout = std::chrono::milliseconds{15000}
+              kw::request_timeout = std::chrono::milliseconds{5000});
+
+// Use consul ...
+```
+
+If you're using blocking queries then make sure that request timeout is longer than block interval, otherwise request will fail with timeout error.
 
 ### Connect to Consul via HTTPS (TLS/SSL, whatever you call it):
 
@@ -178,14 +197,43 @@ Consul consul("https://localhost:8080",
 ```
 
 ## Multi-Threaded Usage of Ppconsul
+
 Each <code>Consul</code> object has a pool of HTTP(S) clients to perform network requests. It is safe to call any endpoint (e.g. `Kv`, `Agent` etc) object or <code>Consul</code> object from multiple threads in the same time.
 
 Call to `Consul::stop()` method stops all ongoing requests on that particular `Consul` object.
 
+## Multi-Threaded Usage of Ppconsul and libCURL initialization
+
+libCURL requires that global initialization function [`curl_global_init`](https://curl.se/libcurl/c/curl_global_init.html) is called before any oither libCURL function is called and before any additional thread is started.
+Ppconsul calls `curl_global_init` for you at the moment when `makeDefaultHttpClientFactory()` is called for the first time which is usually done when first `Consul` object is created. If this is too late then you need to call to `curl_global_init` and `curl_global_cleanup` at the right moment yourself, similar to this example:
+
+```cpp
+int main(int argc, char *argv[])
+{
+    curl_global_init(CURL_GLOBAL_DEFAULT | CURL_GLOBAL_SSL);
+
+    // Existing code that uses Ppconsul and starts extra threads...
+
+    curl_global_cleanup();
+
+    return 0;
+}
+```
+
+`CURL_GLOBAL_SSL` flag is only needed if your're using HTTPS (TLS/SSL).
+
+If your application needs to exclusively control libCURL initialization then you m ay want to skip libCURL initialization in Ppconsul's default HttpClientFactory. To do this, create default HttpClientFactory explicitly via `makeDefaultHttpClientFactory(false)` and pass it to `Consul`:
+
+```cpp
+Consul consul(makeDefaultHttpClientFactory(false), ...);
+```
+
 ## Custom `http::HttpClient`
+
 If needed, user can implement `http::HttpClient` interface and pass custom `HttpClientFactory` to `Consul`'s constructor.
 
 ## Documentation
+
 TBD
 
 ## How To Build
@@ -218,6 +266,7 @@ If you use [Conan](https://conan.io/) then simply run `conan install .` to insta
 
 Otherwise:
 
+* Install [git](https://git-scm.com/) (any version should be fine)
 * Install [Boost](http://www.boost.org/) 1.55 or later. You need compiled Boost.Regex library if you use GCC 4.8, otherwise you need headers only.
 * Install [libCURL](http://curl.haxx.se/libcurl/) (any version should be fine).
 

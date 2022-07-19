@@ -10,6 +10,7 @@ set(HEADERS
     agent.h
     catalog.h
     consul.h
+    coordinate.h
     error.h
     health.h
     helpers.h
@@ -32,6 +33,7 @@ set(SOURCES
     agent.cpp
     catalog.cpp
     consul.cpp
+    coordinate.cpp
     helpers.cpp
     health.cpp
     client_pool.cpp
@@ -86,7 +88,7 @@ source_group(libb64 FILES ${LIBB64_SOURCES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VERSION ${Ppconsul_VERSION}
-    SOVERSION ${Ppconsul_VERSION}
+    SOVERSION "${Ppconsul_VERSION_MAJOR}.${Ppconsul_VERSION_MINOR}"
     COMPILE_PDB_NAME ${PROJECT_NAME}
     COMPILE_PDB_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
     FOLDER ${PROJECT_NAME}

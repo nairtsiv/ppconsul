@@ -37,11 +37,32 @@ namespace ppconsul { namespace curl {
 
     using CurlHeaderList = std::unique_ptr<curl_slist, detail::CurlSListDeleter>;
 
+    struct CurlInitializer
+    {
+        CurlInitializer()
+        {
+            m_initialized = 0 == curl_global_init(CURL_GLOBAL_DEFAULT | CURL_GLOBAL_SSL);
+        }
+
+        ~CurlInitializer()
+        {
+            curl_global_cleanup();
+        }
+
+        CurlInitializer(const CurlInitializer&) = delete;
+        CurlInitializer& operator= (const CurlInitializer&) = delete;
+
+        explicit operator bool() const { return m_initialized; }
+
+    private:
+        bool m_initialized;
+    };
+
     class CurlHttpClient: public ppconsul::http::HttpClient
     {
     public:
         CurlHttpClient(const std::string& endpoint,
-                       const ppconsul::http::TlsConfig& tlsConfig,
+                       const ppconsul::http::HttpClientConfig& config,
                        const std::function<bool()>& cancellationCallback);
 
         virtual ~CurlHttpClient() override;
@@ -84,10 +105,8 @@ namespace ppconsul { namespace curl {
 
     struct CurlHttpClientFactory
     {
-        CurlHttpClientFactory();
-
         std::unique_ptr<CurlHttpClient> operator() (const std::string& endpoint,
-                                                    const ppconsul::http::TlsConfig& tlsConfig,
+                                                    const ppconsul::http::HttpClientConfig& config,
                                                     std::function<bool()> cancellationCallback) const;
     };
 }}

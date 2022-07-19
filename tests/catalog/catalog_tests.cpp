@@ -65,19 +65,19 @@ TEST_CASE("catalog.nodes", "[consul][catalog][config]")
     auto consul = create_test_consul();
     Catalog catalog(consul);
 
-    const auto selfMember = Agent(consul).self().second;
+    auto self = Agent(consul).self();
 
     auto nodes = catalog.nodes();
 
     REQUIRE(nodes.size());
 
     auto it1 = std::find_if(nodes.begin(), nodes.end(), [&](const Node& op){
-        return op.address == selfMember.address;
+        return op.address == self.member.address;
     });
 
     REQUIRE(it1 != nodes.end());
-    CHECK((it1->node == selfMember.name
-        || it1->node.find(selfMember.name + ".") == 0));
+    CHECK((it1->node == self.member.name
+        || it1->node.find(self.member.name + ".") == 0));
 
     for (const auto& node : nodes)
     {
@@ -90,7 +90,7 @@ TEST_CASE("catalog.nodes_blocking", "[consul][catalog][config][blocking]")
     auto consul = create_test_consul();
     Catalog catalog(consul);
 
-    const auto selfMember = Agent(consul).self().second;
+    auto self = Agent(consul).self();
 
     auto index1 = catalog.nodes(ppconsul::withHeaders, kw::consistency = Consistency::Consistent).headers().index();
 
@@ -104,12 +104,12 @@ TEST_CASE("catalog.nodes_blocking", "[consul][catalog][config][blocking]")
     CHECK(resp1.data().size());
 
     auto it1 = std::find_if(resp1.data().begin(), resp1.data().end(), [&](const Node& op){
-        return op.address == selfMember.address;
+        return op.address == self.member.address;
     });
 
     REQUIRE(it1 != resp1.data().end());
-    CHECK((it1->node == selfMember.name
-        || it1->node.find(selfMember.name + ".") == 0));
+    CHECK((it1->node == self.member.name
+        || it1->node.find(self.member.name + ".") == 0));
 
     // Wait for already changed
     auto t2 = std::chrono::steady_clock::now();
@@ -125,10 +125,10 @@ TEST_CASE("catalog.services_default_attributes", "[consul][catalog][services]")
     Catalog catalog(consul);
     Agent agent(consul);
 
-    const auto selfMember = Agent(consul).self().second;
-    const auto selfNode = Node{ selfMember.name, selfMember.address };
+    auto self = Agent(consul).self();
+    const auto selfNode = Node{ self.member.name, self.member.address };
 
-    agent.deregisterService(Uniq_Name_3);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService(Uniq_Name_3), 404);
     agent.registerService({ Uniq_Name_3 });
 
     sleep(2.0); // Give some time to propogate registered services to the catalog
@@ -150,13 +150,14 @@ TEST_CASE("catalog.services", "[consul][catalog][services]")
     Catalog catalog(consul);
     Agent agent(consul);
 
-    const auto selfMember = Agent(consul).self().second;
-    const auto selfNode = Node{ selfMember.name, selfMember.address };
+    auto self = Agent(consul).self();
+    const auto selfNode = Node{ self.member.name, self.member.address };
 
-    agent.deregisterService("service1");
-    agent.deregisterService("service2");
-    agent.deregisterService("service3");
-    agent.deregisterService("service4");
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service2"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service3"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service4"), 404);
+
     agent.registerService(
         agent::kw::name = Uniq_Name_1,
         agent::kw::port = 1234,
@@ -283,7 +284,7 @@ TEST_CASE("catalog.services", "[consul][catalog][services]")
 
     SECTION("node")
     {
-        auto node = catalog.node(selfMember.name);
+        auto node = catalog.node(self.member.name);
 
         REQUIRE(node.first.valid());
         CHECK(node.first == selfNode);
@@ -330,12 +331,13 @@ TEST_CASE("catalog.services_blocking", "[consul][catalog][services][blocking]")
     Catalog catalog(consul);
     Agent agent(consul);
 
-    const auto selfMember = Agent(consul).self().second;
-    const auto selfNode = Node{ selfMember.name, selfMember.address };
+    auto self = Agent(consul).self();
+    const auto selfNode = Node{ self.member.name, self.member.address };
 
-    agent.deregisterService("service1");
-    agent.deregisterService("service2");
-    agent.deregisterService("service3");
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service1"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service2"), 404);
+    REQUIRE_NOTHROW_OR_STATUS(agent.deregisterService("service3"), 404);
+
     agent.registerService(
         agent::kw::name = Uniq_Name_1,
         agent::kw::port = 1234,
