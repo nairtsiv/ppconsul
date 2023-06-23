@@ -10,7 +10,7 @@ find_package(Git)
 if(GIT_FOUND)
     execute_process(
             COMMAND ${GIT_EXECUTABLE} describe --match "v[0-9]*" --abbrev=0 --tags HEAD
-            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            WORKING_DIRECTORY "${ppconsul_SOURCE_DIR}"
             OUTPUT_VARIABLE DESCRIBE_BUILD
             OUTPUT_STRIP_TRAILING_WHITESPACE
     )
